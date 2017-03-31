@@ -1,7 +1,7 @@
 # ChineseWikipediaExtractor  
 Version: 1.1   
 
-Revised: Mar.30, 2017   
+Revised: Mar.31, 2017   
 
 **Highlight: It can select Simplified Chinese or [HongKong/Taiwan] Traditional Chinese!**   
 
