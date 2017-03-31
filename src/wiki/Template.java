@@ -12,6 +12,15 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import java.util.Date; 
+import java.util.Calendar; 
+
+/**
+ * A template is a Wikipedia page created to be included in other pages. 
+ * @author Shu Jiang
+ * @version 1.0 (2017-03-24)
+ * @see https://en.wikipedia.org/wiki/Help:Template
+ */
 public class Template {
 	
 	public static Map<String,String> TemplateList =  new HashMap<String,String>();
@@ -42,40 +51,37 @@ public class Template {
 		}
 	}
 	
+	/**
+	 * remove or replace the templates
+	 * @author Shu Jiang
+	 * @param line from pre-processed text
+	 * @version 1.0 (2017-03-24)
+	 */
 	public static String removeTemplate(String line){
-		
-		
+
 		for(String temp:TemplateList.keySet()){
 	        line = replaceAll3(line, "\\{\\{"+temp+"\\}\\}", TemplateList.get(temp));  
 		}
-		
-		
+
 		for(String note: NoteList){ // cite note 
 			long startTime=System.nanoTime();
 			
 			while(line.toLowerCase().trim().matches(".*\\{\\{ ?"+note+"[A-Za-z/\\- ]*\\|.*\\}\\}.*")){
-//				System.out.println(note);
-//				System.out.println(line);
 				
 				int beginIndexA = line.toLowerCase().indexOf("{{"+note);
-				
-//				System.out.println(beginIndexA);
 				if(beginIndexA == -1 ) beginIndexA = line.toLowerCase().indexOf(note);
-//				System.out.println(beginIndexA);
 				beginIndexA = line.indexOf("|",beginIndexA);
-//				System.out.println("beginIndexA"+beginIndexA+" "+line.substring(beginIndexA));
 				int endIndexA = line.indexOf("}}",beginIndexA);
-//				System.out.println("endIndexA"+endIndexA);
+
 				String A = line.substring(beginIndexA+("|").length(), endIndexA);
 				while (Operation.countSubstr(A , "\\{\\{") != Operation.countSubstr(A , "\\}\\}")){				
 					endIndexA = line.indexOf("}}",endIndexA+1);
 					A = line.substring(beginIndexA+("|").length(), endIndexA);
 					
 				}
-//				System.out.println(A);
+
 				A=toRegex(A);
 				line=replaceAll3(line, "\\{\\{ ?"+note+"[A-Za-z/\\- ]*\\| *"+A+"\\}\\}","");
-//				System.out.println(line);
 				
 				double sDuration = (System.nanoTime() - startTime)/1000000000;
 				if(sDuration>300){
@@ -84,11 +90,9 @@ public class Template {
 				}
 			}
 		}
-		
-		
-		
 		return line;
 	}
+
 	
 	/*** 
      * replaceAll,CASE_INSENSITIVE

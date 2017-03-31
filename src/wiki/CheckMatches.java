@@ -1,5 +1,10 @@
 package wiki;
 
+/**
+ * Check whether the braces, brackets and angle brackets match, evenmore, the ref labels and the math labels match
+ * @author Shu Jiang 
+ * @version 1.0 (2017-03-24)
+ */
 
 public class CheckMatches {
 	public static int leftBraceNum = 0; //{
@@ -14,6 +19,12 @@ public class CheckMatches {
 	public static int leftMathNum = 0;
 	public static int rightMathNum = 0;
 	
+	
+	/**
+	 * Set all value to ZERO
+	 * @author Shu Jiang 
+	 * @version 1.0 (2017-03-24)
+	 */
 	public static void clear(){
 		leftBraceNum = 0;
 		rightBraceNum = 0;
@@ -27,6 +38,12 @@ public class CheckMatches {
 		rightMathNum = 0;
 	}
 	
+	
+	/**
+	 * Check the braces, brackets, angle brackets, the ref labels and the math labels
+	 * @author Shu Jiang 
+	 * @version 1.0 (2017-03-24)
+	 */
 	public static void count(String line){
 		if(line.matches("\\{\\{((wt=?)|(subst\\:wikitable)).*\\}\\}.*")) line="{wt";
 		
@@ -50,6 +67,12 @@ public class CheckMatches {
 		
 	}
 	
+	/**
+	 * Count the sum of the punctuation punc
+	 * @return TURE if all match
+	 * @author Shu Jiang 
+	 * @version 1.0 (2017-03-24)
+	 */
 	public static boolean equal(){
 		return(	leftBraceNum == rightBraceNum 
 				&& leftBracketNum == rightBracketNum 
@@ -58,6 +81,15 @@ public class CheckMatches {
 				&& leftMathNum==rightMathNum);
 	}
 	
+	
+	/**
+	 * Count the sum of the punctuation punc
+	 * @param line which contains the punc 
+	 * @param punc which needs to be counted 
+	 * @return the sum of the the punctuation punc
+	 * @author Shu Jiang 
+	 * @version 1.0 (2017-03-24)
+	 */
 	public static int countSubstr(String line,String punc){
 		return (line.length()-line.replace(punc, "").length())/punc.length();
 	}

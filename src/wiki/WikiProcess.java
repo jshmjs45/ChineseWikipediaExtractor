@@ -7,46 +7,56 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.Arrays;
 
-import opencc.OpenCC;
+import Language.Conversion;
 
 
 public class WikiProcess {
 	
-	public static String originFilename = "";
-	public static String outputFilename = "";
+	public static String originFilename = "test.txt";
+//	public static String originFilename = "zhwiki-20160820-pages-meta-current1.xml";
+	
+	public static String outputFilename = "out.txt";
 	
 	public static int namespace = 0;	//namespace 
+	/**
+	 * Simplified Chinese:0; Traditional Chinese:1; zh-tw:2; zh-hk:3;
+	 */
+	public static int languageMode = 0; //Simplified Chinese 
 	
 	public static boolean removeTitle = false;
-	
-	public static String title = "";
-	
+
 	public static String leftQuote="“";
 	public static String rightQuote="”";
 	
-	public static OpenCC openCC = new OpenCC("tw2sp");
 	
+	static String title = "";
+	static int docID = 0;
+	static int ns = 0;
+	static String titleLine = "";
+	
+	/**
+	 * Main function.
+	 * Read the xml file, then write the extracted text
+	 * @author Shu Jiang
+	 * @version 1.0 (2017-03-23)
+	 */
 	public static void processData(){
-		String line = "";
+		String line = null;
 		String pageText = "";
-		
-		int docID = 0;
-		int ns = 0;
-		
+
 		boolean writeFlag = false;
-//		originFilename = "test.txt";////////////////
-//		outputFilename = "out.txt"; ////////////////
+
 		try{
 			BufferedReader reader = new BufferedReader (new InputStreamReader (new FileInputStream (originFilename), "UTF-8"));
 			BufferedWriter writer = new BufferedWriter (new OutputStreamWriter (new FileOutputStream (outputFilename), "UTF-8"));
 			
 			while ((line = reader.readLine()) != null){
 				if(line.equals("  <page>")){
-					for(int i = 0;i<4; i++){
+					for(int i = 0;i<3; i++){
 						line = reader.readLine();
 						String strs[]=line.split("<|>");
 						if(line.matches("    <id>.+"))		docID = Integer.parseInt(strs[2]);					
-						if(line.matches("    <title>.+")) 	title = strs[2];
+						if(line.matches("    <title>.+")) 	title = Conversion.convert(strs[2], languageMode);
 						if(line.matches("    <ns>.+")) 		ns = Integer.parseInt(strs[2]);				
 					}
 					
@@ -58,9 +68,8 @@ public class WikiProcess {
 					if(ns == namespace){
 						writeFlag=true;
 						System.out.println(docID+"\t"+title);
-						if(removeTitle==false){
-							pageText += "\n\n<doc id=\""+docID+"\" url=\"https://zh.wikipedia.org/wiki?curid="+docID+"\" title=\""+title+"\">"+"\n";
-						}
+						titleLine = "\n\n<doc id=\""+docID+"\" url=\"https://zh.wikipedia.org/wiki?curid="+docID+"\" title=\""+title+"\">"+"\n";
+
 					}
 				}
 
@@ -69,11 +78,12 @@ public class WikiProcess {
 					
 				if(writeFlag && line.equals("  </page>")){
 					
-					pageText = preText(pageText);
-					pageText = extractText(pageText);
-					
-					
-					if(removeTitle==false) pageText+="</doc>";
+					pageText = preText(pageText); //pre-process the page text
+					pageText = extractText(pageText); //extract and clean the page text
+
+					if(removeTitle==false) {
+						pageText= titleLine + pageText + "</doc>";
+					}
 					writer.write(pageText+"\n\n");
 					writeFlag = false;
 					pageText = "";
@@ -102,11 +112,11 @@ public class WikiProcess {
 		CheckMatches.clear();
 		String lines[] = pageText.split("\n");
 		for(String line: lines){
-			if(Ending.checkEnding(line)) return preText; // read the ending label eg. reference
+			if(Ending.checkEnding(line)) return preText; // check the ending label
 
-			line = Html.replaceHtml(line);
+			line = Html.replaceHtml(line); //Replace the Html escaped characters
 			
-			CheckMatches.count(line);
+			CheckMatches.count(line);//Check the braces, brackets, angle brackets, the ref labels and the math labels
 			if(line.matches("==.*==")){
 				CheckMatches.clear();
 				pageText+="\n";
@@ -129,23 +139,27 @@ public class WikiProcess {
 	 * @version 1.0 (2017-03-23)
 	 */
 	public static String extractText(String preText){
+//		System.out.println(preText);
 		String finalText = "";
 		String lines[] = preText.split("\n");
+		Conversion.clearMap();
 		for(String line: lines){
-			System.out.println(line); // origin line
 			CheckMatches.clear();
-			if(line.trim().matches("<doc id.*")) {finalText+=line+"\n";continue;}
+			CheckMatches.count(line);
 			if(!CheckMatches.equal()) continue;
-			if(checkUseless(line)) continue;
+			line = Html.removeLabels(line); //remove useless HTML label e.g. "<!-- -->"
+			
+			Conversion.recordConversion(line); //Extract the Chinese conversion information
 
 			
-			
-			line = removeBraces(line);
-			
+			if(checkUseless(line)) continue; // filter the useless line e.g. "[[File:xxxx.jpg]]"
 
-			System.out.println(line);
+//			line = Conversion.convert(line, languageMode);
+			line = Conversion.removeConversionLabel(line, languageMode);
+//			line = removeBraces(line);
+//			System.out.println(line);
 
-			line = removeLabel(line);
+//			line = removeLabel(line);
 			
 			line = Math.correctFormula(line);
 			
@@ -161,7 +175,6 @@ public class WikiProcess {
 			
 			line = Html.replaceHtml(line);
 			
-			line = tw2cn(line);
 			
 			line = correctFormat(line);
 			
@@ -175,13 +188,13 @@ public class WikiProcess {
 			finalText+=line+"\n";
 				
 		}
-			
+		titleLine = Conversion.convert(titleLine, languageMode);	
 		return finalText;
 	}
 	/*===============================Extract End===============================================*/
 	
 	/**
-	 * check the line which needs to be filtered out
+	 * check the line which needs to be filtered out e.g. "[[File:xxxx.jpg]]"
 	 * @author Shu Jiang
 	 * @param line which to be checked whether need to filter
 	 * @return finalText which extract from the Wiki
@@ -189,9 +202,10 @@ public class WikiProcess {
 	 */
 	
 	public static boolean checkUseless(String line){
-		line = line.replaceAll("< *([A-Za-z &&[^=]])*/ *>", "");
+		line = line.replaceAll("<\\s*([A-Za-z0-9\\s&&[^=]])*/ *>", "");
 		if(line.trim().matches("<text xml.*")) line=line.trim().replaceAll("<text xml.*>", "");
 		
+		if(line.matches("\\s+")) return true;
 		if(line.toLowerCase().matches("\\[?\\[?(file|image|sk|category)\\:.*")) return true;	
 		if(line.trim().matches("\\:?\\{\\|.*\\}")) return true;	
 		if(line.trim().matches("<!--.*")) return true;
@@ -210,48 +224,7 @@ public class WikiProcess {
 	
 	
 	
-	public	static String removeLabel(String line){
-		String[] labelList = {"font","span","nowiki","tt","cite"}; 
 	
-		line = line.replaceAll("< ?w?br ?/? ?>", "");
-		line = line.replaceAll("< ?/? ?text ?>", "");
-		line = line.replaceAll("< ?/? ?center ?>", "");
-		line = line.replaceAll("<!-.*-->", "");
-		line = line.replaceAll("</?blockquote>", "");
-		line = line.replaceAll("</?p>", "");
-		line = line.replaceAll("</?sup>", "");
-		line = line.replaceAll("</?sub>", "");
-		line = line.replaceAll("</?small>", "");
-		line = line.replaceAll("</?big>", "");
-		line = line.replaceAll("</?td>", "");
-		line = line.replaceAll("</?tr>", "");
-		line = line.replaceAll("</?code>", "");	
-		line = line.replaceAll("</?s>", "");	
-		line = line.replaceAll("</?nowiki>", "");
-		
-		for(String label:labelList){
-			
-			while(line.contains("<"+label)){
-	//			System.out.println(label);
-	//			System.out.println(line);
-				int index = line.indexOf("<"+label);
-	//			if(index == -1) index=0;
-				int index1 = line.indexOf(">",index);
-	//			if(index1 == -1) index1=line.length()-1;
-	//			System.out.println(index);
-	//			System.out.println(index1);
-	//			System.out.println(line.substring(0,index));
-	//			System.out.println(line.substring(index1+">".length()));
-				line = line.replace("</"+label+">", "");
-				if(index<index1 && index != -1 && index != -1)line = line.substring(0,index)+line.substring(index1+">".length());
-				else break;
-	//			System.out.println(line);
-				
-			}
-		}
-		
-		return line;
-	}
 	
 public	static String removeRef2(String line){
 		String line1 = "";
@@ -653,11 +626,6 @@ public	static String removeBraces2(String line){ //{{ }}
 		return line;
 	}
 
-	public static String tw2cn(String line){ //tw->cn
-		line = openCC.convert(line);
-		line=line.replaceAll("什幺", "什么");
-		return line;
-	}
 
 	public static String correctFormat(String line) {
 		if(line.startsWith("*")) line = line.replaceAll("^\\* *", "\\*");
